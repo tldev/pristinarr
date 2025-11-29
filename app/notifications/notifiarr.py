@@ -49,6 +49,8 @@ async def send_notifiarr_notification(
     Returns:
         True if the notification was sent successfully, False otherwise.
     """
+    logger.debug(f"Preparing Notifiarr notification: app_name='{app_name}', channel_id={channel_id}")
+    
     if not webhook_url:
         logger.warning("Notifiarr webhook URL is empty, skipping notification")
         return False
@@ -56,6 +58,10 @@ async def send_notifiarr_notification(
     if not channel_id:
         logger.warning("Notifiarr channel ID is empty, skipping notification")
         return False
+    
+    # Mask webhook URL for logging
+    masked_url = webhook_url[:50] + "..." if len(webhook_url) > 55 else webhook_url
+    logger.debug(f"Using Notifiarr webhook: {masked_url}")
 
     # Build the payload structure matching Notifiarr's API
     payload = {
@@ -107,8 +113,11 @@ async def send_notifiarr_notification(
     if footer:
         text["footer"] = footer
 
+    logger.debug(f"Notifiarr payload prepared: color={color}, description_length={len(description)}")
+
     try:
         async with httpx.AsyncClient() as client:
+            logger.debug("Sending Notifiarr webhook request")
             response = await client.post(
                 webhook_url,
                 json=payload,
@@ -116,9 +125,12 @@ async def send_notifiarr_notification(
                 timeout=30.0,
             )
 
+            logger.debug(f"Notifiarr response status: {response.status_code}")
+
             if response.status_code >= 200 and response.status_code < 300:
                 try:
                     result = response.json()
+                    logger.debug(f"Notifiarr response JSON: {result}")
                     if result.get("result") == "success":
                         logger.debug("Notification successfully sent to Notifiarr")
                         return True
@@ -129,13 +141,14 @@ async def send_notifiarr_notification(
                         return False
                 except Exception:
                     # Response might not be JSON
-                    logger.debug("Notification sent to Notifiarr (non-JSON response)")
+                    logger.debug(f"Notification sent to Notifiarr (non-JSON response): {response.text[:200] if response.text else 'empty'}")
                     return True
             else:
                 logger.warning(
                     f"Failed to send Notifiarr notification. "
                     f"Status code: {response.status_code}"
                 )
+                logger.debug(f"Notifiarr error response: {response.text[:500] if response.text else 'empty'}")
                 return False
 
     except httpx.TimeoutException:
@@ -143,5 +156,6 @@ async def send_notifiarr_notification(
         return False
     except httpx.RequestError as e:
         logger.error(f"Error sending Notifiarr notification: {e}")
+        logger.debug(f"Notifiarr request error details: {type(e).__name__}: {e}")
         return False
 

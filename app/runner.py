@@ -63,21 +63,26 @@ async def run_application(app_name: str, dry_run: bool = False) -> dict[str, Any
     from app.starr import StarrClient
     from app.notifications import send_discord_message, send_notifiarr_notification
     
-    logger.info(f"Starting run for {app_name}")
+    logger.info(f"Starting run for {app_name}" + (" (DRY RUN)" if dry_run else ""))
     
     config = load_config()
     
     if not config.has_section(app_name):
+        logger.debug(f"Application {app_name} not found in config sections: {config.sections()}")
         raise ValueError(f"Application {app_name} is not configured")
     
     app_config = dict(config[app_name])
+    logger.debug(f"[{app_name}] Loaded config: {app_config}")
     
     # Validate config
+    logger.debug(f"[{app_name}] Validating configuration")
     errors = validate_application_config(app_name, app_config)
     if errors:
         error_msg = f"Configuration errors for {app_name}: {'; '.join(errors)}"
+        logger.debug(f"[{app_name}] Validation failed: {errors}")
         add_run_history(app_name, False, 0, error_msg)
         raise ValueError(error_msg)
+    logger.debug(f"[{app_name}] Configuration validated successfully")
     
     # Determine app type from name
     app_type = None
@@ -87,28 +92,38 @@ async def run_application(app_name: str, dry_run: bool = False) -> dict[str, Any
             break
     
     if not app_type:
+        logger.debug(f"[{app_name}] Could not determine app type from name")
         raise ValueError(f"Cannot determine application type from name: {app_name}")
     
+    logger.debug(f"[{app_name}] Detected app type: {app_type}")
+    
     # Create client
+    url = app_config.get("Url", "").rstrip("/")
+    logger.debug(f"[{app_name}] Creating client for {url}")
     client = StarrClient(
         app_type=app_type,
-        url=app_config.get("Url", "").rstrip("/"),
+        url=url,
         api_key=app_config.get("ApiKey", ""),
     )
     
     # Get API version
     api_version = await client.get_api_version()
     client.api_version = api_version
+    logger.debug(f"[{app_name}] Using API version: {api_version}")
     
     # Get tag ID (create if doesn't exist)
     tag_name = app_config.get("TagName", "")
+    logger.debug(f"[{app_name}] Looking up tag: '{tag_name}'")
     tag_id = await client.get_or_create_tag(tag_name)
+    logger.debug(f"[{app_name}] Using tag ID: {tag_id}")
     
     # Get ignore tag ID if specified
     ignore_tag_id = None
     ignore_tag = app_config.get("IgnoreTag")
     if ignore_tag:
+        logger.debug(f"[{app_name}] Looking up ignore tag: '{ignore_tag}'")
         ignore_tag_id = await client.get_tag_id(ignore_tag)
+        logger.debug(f"[{app_name}] Ignore tag ID: {ignore_tag_id}")
         if tag_id == ignore_tag_id:
             raise ValueError(f"TagName and IgnoreTag cannot be the same: {tag_name}")
     
@@ -116,7 +131,9 @@ async def run_application(app_name: str, dry_run: bool = False) -> dict[str, Any
     quality_profile_id = None
     quality_profile = app_config.get("QualityProfileName")
     if quality_profile:
+        logger.debug(f"[{app_name}] Looking up quality profile: '{quality_profile}'")
         quality_profile_id = await client.get_quality_profile_id(quality_profile)
+        logger.debug(f"[{app_name}] Quality profile ID: {quality_profile_id}")
     
     # Get all media
     all_media = await client.get_media()
@@ -125,6 +142,7 @@ async def run_application(app_name: str, dry_run: bool = False) -> dict[str, Any
     # Build filter criteria
     monitored = app_config.get("Monitored", "true").lower() == "true"
     unattended = app_config.get("Unattended", "false").lower() == "true"
+    logger.debug(f"[{app_name}] Filter settings: monitored={monitored}, unattended={unattended}")
     
     # Get status filter
     status = None
@@ -136,6 +154,8 @@ async def run_application(app_name: str, dry_run: bool = False) -> dict[str, Any
         status = app_config.get("ArtistStatus")
     elif app_type == "readarr":
         status = app_config.get("AuthorStatus")
+    
+    logger.debug(f"[{app_name}] Status filter: {status or 'None (any status)'}")
     
     # Filter media
     filtered_media = client.filter_media(
@@ -193,12 +213,15 @@ async def run_application(app_name: str, dry_run: bool = False) -> dict[str, Any
     
     # Select items to search based on count
     count_str = app_config.get("Count", "10")
+    logger.debug(f"[{app_name}] Count setting: {count_str}")
     if count_str.lower() == "max":
         media_to_search = filtered_media
+        logger.debug(f"[{app_name}] Using all {len(media_to_search)} filtered items (max mode)")
     else:
         count = int(count_str)
         import random
         media_to_search = random.sample(filtered_media, min(count, len(filtered_media)))
+        logger.debug(f"[{app_name}] Randomly selected {len(media_to_search)} items from {len(filtered_media)} available")
     
     # Get titles for logging
     titles = []
@@ -326,8 +349,12 @@ async def run_all_applications(dry_run: bool = False) -> dict[str, Any]:
     """
     from app.config import load_config
     
+    logger.debug("Starting run for all applications" + (" (DRY RUN)" if dry_run else ""))
     config = load_config()
     excluded_sections = {"Notifications", "General", "Scheduler"}
+    
+    app_sections = [s for s in config.sections() if s not in excluded_sections]
+    logger.debug(f"Found {len(app_sections)} application(s) to process: {app_sections}")
     
     total_searched = 0
     all_items = []

@@ -79,6 +79,16 @@ docker run -d \
 
 ## Configuration
 
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | Logging verbosity level | `DEBUG` |
+| `TZ` | Timezone for scheduling and timestamps | System timezone |
+| `PRISTINARR_CONFIG_PATH` | Path to configuration file | `/config/pristinarr.conf` (Docker) or `./pristinarr.conf` (local) |
+
+Valid log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+
 ### Web Interface
 
 The easiest way to configure Pristinarr is through the web interface at http://localhost:8080/config. You can:

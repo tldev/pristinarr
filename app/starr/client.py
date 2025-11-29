@@ -67,6 +67,7 @@ class StarrClient:
             StarrAPIError: If the response indicates an error.
         """
         status_code = response.status_code
+        logger.debug(f"[{self.app_type}] {operation} response: {status_code}")
 
         if 200 <= status_code < 300:
             return
@@ -84,7 +85,8 @@ class StarrClient:
             status_code,
             f"Unexpected HTTP status code {status_code}",
         )
-
+        
+        logger.debug(f"[{self.app_type}] {operation} failed: {message}")
         raise StarrAPIError(status_code, message, self.app_type)
 
     async def get_api_version(self) -> str:
@@ -109,12 +111,15 @@ class StarrClient:
             List of media objects (movies, series, artists, or authors).
         """
         endpoint = self._get_media_endpoint()
-        response = await self._client.get(
-            f"{self.url}/api/{self.api_version}/{endpoint}"
-        )
+        url = f"{self.url}/api/{self.api_version}/{endpoint}"
+        logger.debug(f"[{self.app_type}] Fetching media from: {url}")
+        
+        response = await self._client.get(url)
         self._check_response(response, "get_media")
         
-        return response.json()
+        media = response.json()
+        logger.debug(f"[{self.app_type}] Retrieved {len(media)} media items")
+        return media
 
     def _get_media_endpoint(self) -> str:
         """Get the API endpoint for media based on app type."""
@@ -173,12 +178,15 @@ class StarrClient:
         Returns:
             List of tag objects with 'id' and 'label'.
         """
+        logger.debug(f"[{self.app_type}] Fetching tags")
         response = await self._client.get(
             f"{self.url}/api/{self.api_version}/tag"
         )
         self._check_response(response, "get_tags")
         
-        return response.json()
+        tags = response.json()
+        logger.debug(f"[{self.app_type}] Found {len(tags)} tags: {[t.get('label') for t in tags]}")
+        return tags
 
     async def get_tag_id(self, tag_name: str) -> Optional[int]:
         """Get the ID of a tag by name.
@@ -189,12 +197,15 @@ class StarrClient:
         Returns:
             The tag ID, or None if not found.
         """
+        logger.debug(f"[{self.app_type}] Looking for tag: '{tag_name}'")
         tags = await self.get_tags()
         
         for tag in tags:
             if tag.get("label", "").lower() == tag_name.lower():
+                logger.debug(f"[{self.app_type}] Found tag '{tag_name}' with ID {tag['id']}")
                 return tag["id"]
         
+        logger.debug(f"[{self.app_type}] Tag '{tag_name}' not found")
         return None
 
     async def create_tag(self, tag_name: str) -> int:
@@ -226,6 +237,7 @@ class StarrClient:
         Returns:
             The tag ID.
         """
+        logger.debug(f"[{self.app_type}] Getting or creating tag: '{tag_name}'")
         tag_id = await self.get_tag_id(tag_name)
         
         if tag_id is None:
@@ -233,6 +245,8 @@ class StarrClient:
                 f"Tag '{tag_name}' does not exist in {self.app_type}, creating it now"
             )
             tag_id = await self.create_tag(tag_name)
+        else:
+            logger.debug(f"[{self.app_type}] Using existing tag '{tag_name}' (ID: {tag_id})")
         
         return tag_id
 
@@ -242,12 +256,15 @@ class StarrClient:
         Returns:
             List of quality profile objects.
         """
+        logger.debug(f"[{self.app_type}] Fetching quality profiles")
         response = await self._client.get(
             f"{self.url}/api/{self.api_version}/qualityprofile"
         )
         self._check_response(response, "get_quality_profiles")
         
-        return response.json()
+        profiles = response.json()
+        logger.debug(f"[{self.app_type}] Found {len(profiles)} quality profiles: {[p.get('name') for p in profiles]}")
+        return profiles
 
     async def get_quality_profile_id(self, profile_name: str) -> int:
         """Get the ID of a quality profile by name.
@@ -261,12 +278,15 @@ class StarrClient:
         Raises:
             ValueError: If the profile doesn't exist.
         """
+        logger.debug(f"[{self.app_type}] Looking for quality profile: '{profile_name}'")
         profiles = await self.get_quality_profiles()
         
         for profile in profiles:
             if profile.get("name", "").lower() == profile_name.lower():
+                logger.debug(f"[{self.app_type}] Found quality profile '{profile_name}' with ID {profile['id']}")
                 return profile["id"]
         
+        logger.debug(f"[{self.app_type}] Quality profile '{profile_name}' not found")
         raise ValueError(
             f"Quality Profile '{profile_name}' does not exist in {self.app_type}"
         )
@@ -283,6 +303,7 @@ class StarrClient:
             tag_id: ID of the tag to add.
         """
         if not media:
+            logger.debug(f"[{self.app_type}] No media to add tag to, skipping")
             return
 
         media_ids = [item["id"] for item in media]
@@ -295,6 +316,7 @@ class StarrClient:
             "applyTags": "add",
         }
 
+        logger.debug(f"[{self.app_type}] Adding tag {tag_id} to {len(media_ids)} items: {media_ids}")
         response = await self._client.put(
             f"{self.url}/api/{self.api_version}/{endpoint}",
             json=body,
@@ -315,6 +337,7 @@ class StarrClient:
             tag_id: ID of the tag to remove.
         """
         if not media:
+            logger.debug(f"[{self.app_type}] No media to remove tag from, skipping")
             return
 
         media_ids = [item["id"] for item in media]
@@ -327,6 +350,7 @@ class StarrClient:
             "applyTags": "remove",
         }
 
+        logger.debug(f"[{self.app_type}] Removing tag {tag_id} from {len(media_ids)} items: {media_ids}")
         response = await self._client.put(
             f"{self.url}/api/{self.api_version}/{endpoint}",
             json=body,
@@ -342,10 +366,12 @@ class StarrClient:
             media: List of media objects to search.
         """
         if not media:
+            logger.debug(f"[{self.app_type}] No media to search, skipping")
             return
 
         command_name = self._get_search_command_name()
         id_field = self._get_search_id_field()
+        logger.debug(f"[{self.app_type}] Starting search with command '{command_name}' for {len(media)} items")
 
         # Radarr supports batch search, others need individual calls
         if self.app_type == "radarr":
@@ -354,6 +380,7 @@ class StarrClient:
                 "name": command_name,
                 id_field: media_ids,
             }
+            logger.debug(f"[{self.app_type}] Batch search request: {body}")
             response = await self._client.post(
                 f"{self.url}/api/{self.api_version}/command",
                 json=body,
@@ -361,11 +388,12 @@ class StarrClient:
             self._check_response(response, "search_media")
         else:
             # Sonarr, Lidarr, Readarr need individual calls
-            for item in media:
+            for i, item in enumerate(media):
                 body = {
                     "name": command_name,
                     id_field: item["id"],
                 }
+                logger.debug(f"[{self.app_type}] Search request {i+1}/{len(media)}: ID {item['id']}")
                 response = await self._client.post(
                     f"{self.url}/api/{self.api_version}/command",
                     json=body,
@@ -398,11 +426,29 @@ class StarrClient:
         Returns:
             Filtered list of media objects.
         """
+        logger.debug(
+            f"[{self.app_type}] Filtering {len(media)} items with criteria: "
+            f"tag_id={tag_id}, monitored={monitored}, status={status}, "
+            f"quality_profile_id={quality_profile_id}, ignore_tag_id={ignore_tag_id}, "
+            f"unattended={unattended}"
+        )
+        
         filtered = []
+        # Track exclusion reasons for debugging
+        excluded_monitored = 0
+        excluded_tag = 0
+        excluded_status = 0
+        excluded_quality = 0
+        excluded_ignore = 0
 
         for item in media:
+            # Get item name for debug logging
+            item_name = item.get("title") or item.get("artistName") or item.get("authorName") or f"ID:{item.get('id')}"
+            
             # Check monitored status
             if item.get("monitored") != monitored:
+                excluded_monitored += 1
+                logger.debug(f"[{self.app_type}] Excluded '{item_name}': monitored={item.get('monitored')} (want {monitored})")
                 continue
 
             # Check tag presence
@@ -411,29 +457,47 @@ class StarrClient:
             if unattended:
                 # In unattended mode, we want media WITH the tag
                 if tag_id not in item_tags:
+                    excluded_tag += 1
+                    logger.debug(f"[{self.app_type}] Excluded '{item_name}': missing tag {tag_id} (unattended mode)")
                     continue
             else:
                 # Normal mode, we want media WITHOUT the tag
                 if tag_id in item_tags:
+                    excluded_tag += 1
+                    logger.debug(f"[{self.app_type}] Excluded '{item_name}': already has tag {tag_id}")
                     continue
 
             # Check status if specified
             if status:
                 item_status = item.get("status", "").lower()
                 if item_status != status.lower():
+                    excluded_status += 1
+                    logger.debug(f"[{self.app_type}] Excluded '{item_name}': status={item_status} (want {status})")
                     continue
 
             # Check quality profile if specified
             if quality_profile_id is not None:
                 if item.get("qualityProfileId") != quality_profile_id:
+                    excluded_quality += 1
+                    logger.debug(f"[{self.app_type}] Excluded '{item_name}': qualityProfileId={item.get('qualityProfileId')} (want {quality_profile_id})")
                     continue
 
             # Check ignore tag if specified (only in normal mode)
             if not unattended and ignore_tag_id is not None:
                 if ignore_tag_id in item_tags:
+                    excluded_ignore += 1
+                    logger.debug(f"[{self.app_type}] Excluded '{item_name}': has ignore tag {ignore_tag_id}")
                     continue
 
+            logger.debug(f"[{self.app_type}] Included '{item_name}' (ID: {item.get('id')})")
             filtered.append(item)
+
+        logger.debug(
+            f"[{self.app_type}] Filter results: {len(filtered)} included, "
+            f"{excluded_monitored} excluded (monitored), {excluded_tag} excluded (tag), "
+            f"{excluded_status} excluded (status), {excluded_quality} excluded (quality), "
+            f"{excluded_ignore} excluded (ignore tag)"
+        )
 
         return filtered
 

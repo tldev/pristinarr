@@ -20,8 +20,8 @@ services:
     environment:
       # Timezone (optional)
       - TZ=America/New_York
-      # Log level (optional): DEBUG, INFO, WARNING, ERROR
-      - LOG_LEVEL=INFO
+      # Log level (optional): DEBUG, INFO, WARNING, ERROR - defaults to DEBUG
+      # - LOG_LEVEL=INFO
     # Optional: healthcheck configuration
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]

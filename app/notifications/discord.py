@@ -33,9 +33,15 @@ async def send_discord_message(
     Returns:
         True if the message was sent successfully, False otherwise.
     """
+    logger.debug(f"Preparing Discord notification: title='{title}'")
+    
     if not webhook_url:
         logger.warning("Discord webhook URL is empty, skipping notification")
         return False
+
+    # Mask webhook URL for logging (show first and last parts only)
+    masked_url = webhook_url[:40] + "..." + webhook_url[-10:] if len(webhook_url) > 55 else webhook_url
+    logger.debug(f"Using Discord webhook: {masked_url}")
 
     payload = {
         "username": username,
@@ -52,9 +58,13 @@ async def send_discord_message(
     # Add thumbnail if provided
     if thumbnail_url:
         payload["embeds"][0]["thumbnail"] = {"url": thumbnail_url}
+        logger.debug(f"Added thumbnail: {thumbnail_url}")
+
+    logger.debug(f"Discord payload: username={username}, color={color}, description_length={len(description)}")
 
     try:
         async with httpx.AsyncClient() as client:
+            logger.debug("Sending Discord webhook request")
             response = await client.post(
                 webhook_url,
                 json=payload,
@@ -62,13 +72,14 @@ async def send_discord_message(
             )
 
             if 200 <= response.status_code < 300:
-                logger.debug("Discord message sent successfully")
+                logger.debug(f"Discord message sent successfully (status: {response.status_code})")
                 return True
             else:
                 logger.warning(
                     f"Failed to send Discord message. "
                     f"Status code: {response.status_code}"
                 )
+                logger.debug(f"Discord error response: {response.text[:500] if response.text else 'empty'}")
                 return False
 
     except httpx.TimeoutException:
@@ -76,5 +87,6 @@ async def send_discord_message(
         return False
     except httpx.RequestError as e:
         logger.error(f"Error sending Discord message: {e}")
+        logger.debug(f"Discord request error details: {type(e).__name__}: {e}")
         return False
 

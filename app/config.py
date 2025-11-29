@@ -42,7 +42,9 @@ def get_config_path() -> Path:
     """
     env_path = os.environ.get(CONFIG_PATH_ENV)
     if env_path:
+        logger.debug(f"Using config path from environment: {env_path}")
         return Path(env_path)
+    logger.debug(f"Using default config path: {DEFAULT_CONFIG_PATH}")
     return DEFAULT_CONFIG_PATH
 
 
@@ -60,6 +62,7 @@ def load_config() -> configparser.ConfigParser:
     if config_path.exists():
         config.read(config_path)
         logger.debug(f"Loaded configuration from {config_path}")
+        logger.debug(f"Configuration sections: {config.sections()}")
     else:
         logger.warning(f"Configuration file not found at {config_path}, using empty config")
     
@@ -280,21 +283,33 @@ def validate_config(config: configparser.ConfigParser) -> list[str]:
     Returns:
         List of all error messages, empty if valid.
     """
+    logger.debug("Starting full configuration validation")
     errors = []
     
     # Check for quotes
-    errors.extend(validate_quotes(config))
+    quote_errors = validate_quotes(config)
+    if quote_errors:
+        logger.debug(f"Quote validation errors: {quote_errors}")
+    errors.extend(quote_errors)
     
     # Validate notifications
-    errors.extend(validate_notification_config(config))
+    notif_errors = validate_notification_config(config)
+    if notif_errors:
+        logger.debug(f"Notification config errors: {notif_errors}")
+    errors.extend(notif_errors)
     
     # Validate each application section
     excluded_sections = {"Notifications", "General", "Scheduler"}
     for section in config.sections():
         if section not in excluded_sections:
+            logger.debug(f"Validating application section: {section}")
             app_config = dict(config[section])
-            errors.extend(validate_application_config(section, app_config))
+            app_errors = validate_application_config(section, app_config)
+            if app_errors:
+                logger.debug(f"Application '{section}' errors: {app_errors}")
+            errors.extend(app_errors)
     
+    logger.debug(f"Validation complete: {len(errors)} error(s) found")
     return errors
 
 
@@ -308,14 +323,18 @@ def get_scheduler_config(config: configparser.ConfigParser) -> dict[str, Any]:
         Dictionary with scheduler settings.
     """
     if not config.has_section("Scheduler"):
+        logger.debug("No Scheduler section found, using defaults")
         return {"enabled": False, "interval_hours": 6}
     
     scheduler_config = dict(config["Scheduler"])
+    logger.debug(f"Raw scheduler config: {scheduler_config}")
     
-    return {
+    result = {
         "enabled": scheduler_config.get("Enabled", "false").lower() == "true",
         "interval_hours": int(scheduler_config.get("IntervalHours", "6")),
     }
+    logger.debug(f"Parsed scheduler config: {result}")
+    return result
 
 
 def create_default_config() -> configparser.ConfigParser:

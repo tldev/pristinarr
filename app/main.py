@@ -1,6 +1,7 @@
 """FastAPI application entry point for Pristinarr."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,12 +12,16 @@ from fastapi.templating import Jinja2Templates
 from app.routes import api, pages
 from app.scheduler import scheduler, init_scheduler_from_config
 
-# Configure logging
+# Configure logging - default to DEBUG, can be overridden with LOG_LEVEL env var
+log_level_name = os.environ.get("LOG_LEVEL", "DEBUG").upper()
+log_level = getattr(logging, log_level_name, logging.DEBUG)
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Log level set to: {log_level_name}")
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
