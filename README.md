@@ -117,7 +117,7 @@ IntervalHours=6
 [Radarr]
 ApiKey=your-32-character-api-key-here
 Url=http://localhost:7878
-TagName=pristinarr
+TagName=pristinarr  # Use "upgradinatorr" if migrating from the PowerShell script
 Count=10
 Monitored=true
 Unattended=false
@@ -150,7 +150,7 @@ SeriesStatus=
 |-----------|-------------|---------|--------|
 | ApiKey | API Key from Settings → General | (required) | 32-character string |
 | Url | Application URL with port | (required) | http(s)://host:port |
-| TagName | Tag applied to searched media | (required) | any string |
+| TagName | Tag applied to searched media | pristinarr | any string (use "upgradinatorr" if migrating from PowerShell script) |
 | Count | Number of items to search per run | 10 | integer or "max" |
 | Monitored | Only search monitored items | true | true/false |
 | Unattended | Auto-restart when all items are tagged | false | true/false |
