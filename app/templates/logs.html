@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Pristinarr{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Run History</h2>
+    <p>View recent upgrade search activity</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Activity Log</h3>
+        <button class="btn btn-sm" onclick="refreshLogs()">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+            Refresh
+        </button>
+    </div>
+    
+    <div id="log-container">
+        {% if history %}
+        {% for entry in history %}
+        <div class="log-entry">
+            <span class="log-time">{{ entry.timestamp[:19].replace('T', ' ') }}</span>
+            <div>
+                <span class="log-app">{{ entry.application }}</span>
+                <span class="log-message"> - {{ entry.message }}</span>
+                {% if entry.searched_count > 0 %}
+                <span class="badge badge-info" style="margin-left: 0.5rem;">{{ entry.searched_count }} items</span>
+                {% endif %}
+            </div>
+            <span class="badge {% if entry.success %}badge-success{% else %}badge-error{% endif %}">
+                {% if entry.success %}Success{% else %}Failed{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <h3>No Activity Yet</h3>
+            <p>Run a search to see activity here.</p>
+            <a href="/" class="btn btn-primary" style="margin-top: 1rem;">Go to Dashboard</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function refreshLogs() {
+        try {
+            const history = await apiCall('/history');
+            const container = document.getElementById('log-container');
+            
+            if (history.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No Activity Yet</h3>
+                        <p>Run a search to see activity here.</p>
+                        <a href="/" class="btn btn-primary" style="margin-top: 1rem;">Go to Dashboard</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            const entries = history.map(entry => {
+                const statusClass = entry.success ? 'badge-success' : 'badge-error';
+                const statusText = entry.success ? 'Success' : 'Failed';
+                const itemsBadge = entry.searched_count > 0 
+                    ? `<span class="badge badge-info" style="margin-left: 0.5rem;">${entry.searched_count} items</span>` 
+                    : '';
+                
+                return `
+                    <div class="log-entry">
+                        <span class="log-time">${entry.timestamp.substring(0, 19).replace('T', ' ')}</span>
+                        <div>
+                            <span class="log-app">${entry.application}</span>
+                            <span class="log-message"> - ${entry.message}</span>
+                            ${itemsBadge}
+                        </div>
+                        <span class="badge ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = entries;
+            showToast('Logs refreshed', 'success');
+        } catch (e) {
+            showToast('Failed to refresh logs', 'error');
+        }
+    }
+</script>
+{% endblock %}
+

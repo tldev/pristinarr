@@ -1,0 +1,51 @@
+# Pristinarr Docker Compose Configuration
+# 
+# Usage:
+#   docker-compose up -d
+#
+# Configuration:
+#   - Place your pristinarr.conf in the ./config directory
+#   - Or let the web UI create it for you
+
+services:
+  pristinarr:
+    build: .
+    container_name: pristinarr
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Configuration file - create config directory first
+      - ./config:/config
+    environment:
+      # Timezone (optional)
+      - TZ=America/New_York
+      # Log level (optional): DEBUG, INFO, WARNING, ERROR
+      - LOG_LEVEL=INFO
+    # Optional: healthcheck configuration
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Optional: resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.5'
+    #       memory: 256M
+
+# Example with pre-built image (when published):
+# services:
+#   pristinarr:
+#     image: ghcr.io/angrycuban13/pristinarr:latest
+#     container_name: pristinarr
+#     restart: unless-stopped
+#     ports:
+#       - "8080:8080"
+#     volumes:
+#       - ./config:/config
+#     environment:
+#       - TZ=America/New_York
+

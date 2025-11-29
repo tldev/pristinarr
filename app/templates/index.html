@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Pristinarr{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Dashboard</h2>
+    <p>Manage your Starr application upgrades</p>
+</div>
+
+<!-- Scheduler Status -->
+<div class="scheduler-status" id="scheduler-status">
+    <div class="scheduler-indicator" id="scheduler-indicator"></div>
+    <div>
+        <strong>Scheduler:</strong>
+        <span id="scheduler-text">Loading...</span>
+    </div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" id="global-dry-run" style="width: 16px; height: 16px;">
+            <span style="color: var(--text-secondary);">Dry Run</span>
+        </label>
+        <button class="btn btn-primary" onclick="runAll()">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+            </svg>
+            Run All Now
+        </button>
+    </div>
+</div>
+
+<!-- Applications Grid -->
+<div class="card">
+    <div class="card-header">
+        <h3>Configured Applications</h3>
+        <a href="/config" class="btn btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Add Application
+        </a>
+    </div>
+
+    {% if applications %}
+    <div class="card-grid">
+        {% for app in applications %}
+        <div class="app-card {{ app.name|lower }}">
+            <div class="app-card-header">
+                <h4>{{ app.name }}</h4>
+                <span class="badge badge-success">Configured</span>
+            </div>
+            <div class="app-url">{{ app.url }}</div>
+            <div class="app-actions" style="flex-wrap: wrap; gap: 0.5rem;">
+                <button class="btn btn-sm btn-success" onclick="runApp('{{ app.name }}')">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                    </svg>
+                    Run Now
+                </button>
+                <button class="btn btn-sm" onclick="testConnection('{{ app.name }}')">
+                    Test
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No Applications Configured</h3>
+        <p>Get started by adding your first Starr application.</p>
+        <a href="/config" class="btn btn-primary" style="margin-top: 1rem;">Configure Applications</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Recent Activity -->
+<div class="card">
+    <div class="card-header">
+        <h3>Recent Activity</h3>
+        <a href="/logs" class="btn btn-sm">View All</a>
+    </div>
+    <div id="recent-activity">
+        <div class="empty-state">
+            <p>No recent activity</p>
+        </div>
+    </div>
+</div>
+
+<!-- Dry Run Results Modal -->
+<div id="dry-run-modal" class="modal-overlay" onclick="if(event.target===this)closeDryRunModal()">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="dry-run-title">Dry Run Results</h3>
+            <button class="modal-close" onclick="closeDryRunModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">The following items would be searched:</p>
+            <ul id="dry-run-list" style="max-height: 400px; overflow-y: auto; padding-left: 1.5rem; color: var(--text-primary);"></ul>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeDryRunModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load scheduler status
+    async function loadSchedulerStatus() {
+        try {
+            const status = await apiCall('/scheduler/status');
+            const indicator = document.getElementById('scheduler-indicator');
+            const text = document.getElementById('scheduler-text');
+            
+            if (status.enabled && status.running) {
+                indicator.classList.add('active');
+                if (status.next_run_time) {
+                    const nextRun = new Date(status.next_run_time);
+                    text.textContent = `Active - Next run: ${nextRun.toLocaleString()}`;
+                } else {
+                    text.textContent = 'Active';
+                }
+            } else {
+                indicator.classList.remove('active');
+                text.textContent = 'Disabled';
+            }
+        } catch (e) {
+            console.error('Failed to load scheduler status:', e);
+        }
+    }
+
+    // Run specific application
+    async function runApp(appName) {
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        const dryRun = document.getElementById('global-dry-run').checked;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Running...';
+        
+        try {
+            const url = dryRun ? `/run/${appName}?dry_run=true` : `/run/${appName}`;
+            const result = await apiCall(url, 'POST');
+            
+            if (dryRun && result.items && result.items.length > 0) {
+                showDryRunResults(appName, result.items);
+            } else {
+                showToast(result.message, 'success');
+            }
+            loadRecentActivity();
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    // Run all applications
+    async function runAll() {
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        const dryRun = document.getElementById('global-dry-run').checked;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Running...';
+        
+        try {
+            const url = dryRun ? '/run?dry_run=true' : '/run';
+            const result = await apiCall(url, 'POST');
+            
+            if (dryRun && result.items && result.items.length > 0) {
+                showDryRunResults('All Applications', result.items);
+            } else {
+                showToast(result.message, 'success');
+            }
+            loadRecentActivity();
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+    
+    // Show dry run results in a modal
+    function showDryRunResults(appName, items) {
+        const modal = document.getElementById('dry-run-modal');
+        const title = document.getElementById('dry-run-title');
+        const list = document.getElementById('dry-run-list');
+        
+        title.textContent = `Dry Run: ${appName} (${items.length} items)`;
+        list.innerHTML = items.map(item => `<li>${item}</li>`).join('');
+        
+        modal.classList.add('active');
+    }
+    
+    function closeDryRunModal() {
+        document.getElementById('dry-run-modal').classList.remove('active');
+    }
+
+    // Test connection
+    async function testConnection(appName) {
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div>';
+        
+        try {
+            const result = await apiCall(`/test/${appName}`);
+            showToast(`Connected to ${appName} (API ${result.api_version})`, 'success');
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    // Load recent activity
+    async function loadRecentActivity() {
+        try {
+            const history = await apiCall('/history');
+            const container = document.getElementById('recent-activity');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
+                return;
+            }
+            
+            const entries = history.slice(0, 5).map(entry => {
+                const time = new Date(entry.timestamp);
+                const statusClass = entry.success ? 'badge-success' : 'badge-error';
+                const statusText = entry.success ? 'Success' : 'Failed';
+                
+                return `
+                    <div class="log-entry">
+                        <span class="log-time">${time.toLocaleString()}</span>
+                        <div>
+                            <span class="log-app">${entry.application}</span>
+                            <span class="log-message"> - ${entry.message}</span>
+                        </div>
+                        <span class="badge ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = entries;
+        } catch (e) {
+            console.error('Failed to load recent activity:', e);
+        }
+    }
+
+    // Initialize
+    loadSchedulerStatus();
+    loadRecentActivity();
+    
+    // Refresh scheduler status every 30 seconds
+    setInterval(loadSchedulerStatus, 30000);
+</script>
+{% endblock %}
+

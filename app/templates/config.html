@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - Pristinarr{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Configuration</h2>
+    <p>Manage your Starr application settings and notifications</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab active" onclick="showTab('applications')">Applications</button>
+    <button class="tab" onclick="showTab('notifications')">Notifications</button>
+    <button class="tab" onclick="showTab('scheduler')">Scheduler</button>
+</div>
+
+<!-- Applications Tab -->
+<div id="applications-tab" class="tab-content">
+    <div class="card">
+        <div class="card-header">
+            <h3>Starr Applications</h3>
+            <button class="btn btn-primary" onclick="showAddAppModal()">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Add Application
+            </button>
+        </div>
+        
+        {% if applications %}
+        {% for app_name, app_config in applications.items() %}
+        <div class="card" style="margin-bottom: 1rem; background-color: var(--bg-tertiary);">
+            <form onsubmit="saveApplication(event, '{{ app_name }}')">
+                <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+                    <h4 style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="badge 
+                            {% if 'radarr' in app_name|lower %}badge-warning{% endif %}
+                            {% if 'sonarr' in app_name|lower %}badge-info{% endif %}
+                            {% if 'lidarr' in app_name|lower %}badge-success{% endif %}
+                            {% if 'readarr' in app_name|lower %}badge-error{% endif %}
+                        ">
+                            {{ app_name }}
+                        </span>
+                    </h4>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteApplication('{{ app_name }}')">Delete</button>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" name="api_key" value="{{ app_config.get('ApiKey', '') }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>URL</label>
+                        <input type="url" name="url" value="{{ app_config.get('Url', '') }}" placeholder="http://localhost:7878" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tag Name</label>
+                        <input type="text" name="tag_name" value="{{ app_config.get('TagName', '') }}" placeholder="upgradinatorr" required>
+                        <span class="form-hint">Tag applied to searched media</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Count</label>
+                        <input type="text" name="count" value="{{ app_config.get('Count', '10') }}" placeholder="10 or max">
+                        <span class="form-hint">Number of items to search per run</span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monitored</label>
+                        <select name="monitored">
+                            <option value="true" {% if app_config.get('Monitored', 'true')|lower == 'true' %}selected{% endif %}>True</option>
+                            <option value="false" {% if app_config.get('Monitored', 'true')|lower == 'false' %}selected{% endif %}>False</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Unattended</label>
+                        <select name="unattended">
+                            <option value="false" {% if app_config.get('Unattended', 'false')|lower == 'false' %}selected{% endif %}>False</option>
+                            <option value="true" {% if app_config.get('Unattended', 'false')|lower == 'true' %}selected{% endif %}>True</option>
+                        </select>
+                        <span class="form-hint">Auto-restart when all media is tagged</span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ignore Tag (Optional)</label>
+                        <input type="text" name="ignore_tag" value="{{ app_config.get('IgnoreTag', '') }}" placeholder="do-not-upgrade">
+                        <span class="form-hint">Media with this tag will be skipped</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Quality Profile (Optional)</label>
+                        <input type="text" name="quality_profile_name" value="{{ app_config.get('QualityProfileName', '') }}" placeholder="HD-1080p">
+                        <span class="form-hint">Only search media with this profile</span>
+                    </div>
+                </div>
+                
+                {% if 'radarr' in app_name|lower %}
+                <div class="form-group">
+                    <label>Movie Status (Optional)</label>
+                    <select name="movie_status">
+                        <option value="">Any</option>
+                        <option value="tba" {% if app_config.get('MovieStatus', '')|lower == 'tba' %}selected{% endif %}>TBA</option>
+                        <option value="announced" {% if app_config.get('MovieStatus', '')|lower == 'announced' %}selected{% endif %}>Announced</option>
+                        <option value="inCinemas" {% if app_config.get('MovieStatus', '')|lower == 'incinemas' %}selected{% endif %}>In Cinemas</option>
+                        <option value="released" {% if app_config.get('MovieStatus', '')|lower == 'released' %}selected{% endif %}>Released</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                {% if 'sonarr' in app_name|lower %}
+                <div class="form-group">
+                    <label>Series Status (Optional)</label>
+                    <select name="series_status">
+                        <option value="">Any</option>
+                        <option value="continuing" {% if app_config.get('SeriesStatus', '')|lower == 'continuing' %}selected{% endif %}>Continuing</option>
+                        <option value="ended" {% if app_config.get('SeriesStatus', '')|lower == 'ended' %}selected{% endif %}>Ended</option>
+                        <option value="upcoming" {% if app_config.get('SeriesStatus', '')|lower == 'upcoming' %}selected{% endif %}>Upcoming</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                {% if 'lidarr' in app_name|lower %}
+                <div class="form-group">
+                    <label>Artist Status (Optional)</label>
+                    <select name="artist_status">
+                        <option value="">Any</option>
+                        <option value="continuing" {% if app_config.get('ArtistStatus', '')|lower == 'continuing' %}selected{% endif %}>Continuing</option>
+                        <option value="ended" {% if app_config.get('ArtistStatus', '')|lower == 'ended' %}selected{% endif %}>Ended</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                {% if 'readarr' in app_name|lower %}
+                <div class="form-group">
+                    <label>Author Status (Optional)</label>
+                    <select name="author_status">
+                        <option value="">Any</option>
+                        <option value="continuing" {% if app_config.get('AuthorStatus', '')|lower == 'continuing' %}selected{% endif %}>Continuing</option>
+                        <option value="ended" {% if app_config.get('AuthorStatus', '')|lower == 'ended' %}selected{% endif %}>Ended</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn" onclick="testConnection('{{ app_name }}')">Test Connection</button>
+                </div>
+            </form>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <h3>No Applications Configured</h3>
+            <p>Add your first Starr application to get started.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Notifications Tab -->
+<div id="notifications-tab" class="tab-content" style="display: none;">
+    <div class="card">
+        <div class="card-header">
+            <h3>Notification Settings</h3>
+        </div>
+        
+        <form onsubmit="saveNotifications(event)">
+            <h4 style="margin-bottom: 1rem;">Discord</h4>
+            <div class="form-group">
+                <label>Webhook URL</label>
+                <input type="url" name="discord_webhook" value="{{ notifications.get('DiscordWebhook', '') }}" placeholder="https://discord.com/api/webhooks/...">
+                <span class="form-hint">Discord webhook URL for notifications</span>
+            </div>
+            
+            <div class="section-divider"></div>
+            
+            <h4 style="margin-bottom: 1rem;">Notifiarr Passthrough</h4>
+            <div class="form-group">
+                <label>Webhook URL</label>
+                <input type="url" name="notifiarr_passthrough_webhook" value="{{ notifications.get('NotifiarrPassthroughWebhook', '') }}" placeholder="https://notifiarr.com/api/v1/notification/passthrough/...">
+            </div>
+            <div class="form-group">
+                <label>Discord Channel ID</label>
+                <input type="text" name="notifiarr_passthrough_discord_channel_id" value="{{ notifications.get('NotifiarrPassthroughDiscordChannelId', '') }}" placeholder="123456789012345678">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Notification Settings</button>
+        </form>
+    </div>
+</div>
+
+<!-- Scheduler Tab -->
+<div id="scheduler-tab" class="tab-content" style="display: none;">
+    <div class="card">
+        <div class="card-header">
+            <h3>Scheduler Settings</h3>
+        </div>
+        
+        <form onsubmit="saveScheduler(event)">
+            <div class="form-group">
+                <label>Enable Scheduler</label>
+                <div class="toggle-wrapper">
+                    <div class="toggle {% if scheduler.get('Enabled', 'false')|lower == 'true' %}active{% endif %}" 
+                         id="scheduler-toggle" 
+                         onclick="toggleScheduler()"></div>
+                    <span id="scheduler-toggle-text">{% if scheduler.get('Enabled', 'false')|lower == 'true' %}Enabled{% else %}Disabled{% endif %}</span>
+                    <input type="hidden" name="enabled" id="scheduler-enabled" value="{{ scheduler.get('Enabled', 'false') }}">
+                </div>
+                <span class="form-hint">Automatically run searches on a schedule</span>
+            </div>
+            
+            <div class="form-group">
+                <label>Interval (Hours)</label>
+                <input type="number" name="interval_hours" value="{{ scheduler.get('IntervalHours', '6') }}" min="1" max="168">
+                <span class="form-hint">How often to run (1-168 hours)</span>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Scheduler Settings</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Application Modal -->
+<div id="add-app-modal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Add Application</h3>
+            <button class="modal-close" onclick="closeAddAppModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="add-app-form" onsubmit="addApplication(event)">
+                <div class="form-group">
+                    <label>Application Name</label>
+                    <input type="text" name="app_name" placeholder="Radarr, Sonarr4K, etc." required>
+                    <span class="form-hint">Must contain: radarr, sonarr, lidarr, or readarr</span>
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" name="api_key" required>
+                </div>
+                <div class="form-group">
+                    <label>URL</label>
+                    <input type="url" name="url" placeholder="http://localhost:7878" required>
+                </div>
+                <div class="form-group">
+                    <label>Tag Name</label>
+                    <input type="text" name="tag_name" value="upgradinatorr" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeAddAppModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="document.getElementById('add-app-form').requestSubmit()">Add Application</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function showTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        
+        // Show selected tab
+        document.getElementById(`${tabName}-tab`).style.display = 'block';
+        event.target.classList.add('active');
+    }
+
+    function toggleScheduler() {
+        const toggle = document.getElementById('scheduler-toggle');
+        const input = document.getElementById('scheduler-enabled');
+        const text = document.getElementById('scheduler-toggle-text');
+        
+        const isActive = toggle.classList.toggle('active');
+        input.value = isActive ? 'true' : 'false';
+        text.textContent = isActive ? 'Enabled' : 'Disabled';
+    }
+
+    function showAddAppModal() {
+        document.getElementById('add-app-modal').classList.add('active');
+    }
+
+    function closeAddAppModal() {
+        document.getElementById('add-app-modal').classList.remove('active');
+        document.getElementById('add-app-form').reset();
+    }
+
+    async function addApplication(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const appName = formData.get('app_name');
+        
+        try {
+            await apiCall(`/config/application/${appName}`, 'POST', {
+                api_key: formData.get('api_key'),
+                url: formData.get('url'),
+                tag_name: formData.get('tag_name'),
+                count: '10',
+                monitored: 'true',
+                unattended: 'false',
+            });
+            showToast(`Added ${appName}`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function saveApplication(event, appName) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        try {
+            await apiCall(`/config/application/${appName}`, 'POST', {
+                api_key: formData.get('api_key'),
+                url: formData.get('url'),
+                tag_name: formData.get('tag_name'),
+                count: formData.get('count'),
+                monitored: formData.get('monitored'),
+                unattended: formData.get('unattended'),
+                ignore_tag: formData.get('ignore_tag') || null,
+                quality_profile_name: formData.get('quality_profile_name') || null,
+                movie_status: formData.get('movie_status') || null,
+                series_status: formData.get('series_status') || null,
+                artist_status: formData.get('artist_status') || null,
+                author_status: formData.get('author_status') || null,
+            });
+            showToast(`Saved ${appName}`, 'success');
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function deleteApplication(appName) {
+        if (!confirm(`Are you sure you want to delete ${appName}?`)) return;
+        
+        try {
+            await apiCall(`/config/application/${appName}`, 'DELETE');
+            showToast(`Deleted ${appName}`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function saveNotifications(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        try {
+            await apiCall('/config/notifications', 'POST', {
+                discord_webhook: formData.get('discord_webhook') || null,
+                notifiarr_passthrough_webhook: formData.get('notifiarr_passthrough_webhook') || null,
+                notifiarr_passthrough_discord_channel_id: formData.get('notifiarr_passthrough_discord_channel_id') || null,
+            });
+            showToast('Notification settings saved', 'success');
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function saveScheduler(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        try {
+            await apiCall('/config/scheduler', 'POST', {
+                enabled: formData.get('enabled') === 'true',
+                interval_hours: parseInt(formData.get('interval_hours')),
+            });
+            showToast('Scheduler settings saved', 'success');
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function testConnection(appName) {
+        try {
+            const result = await apiCall(`/test/${appName}`);
+            showToast(`Connected to ${appName} (API ${result.api_version})`, 'success');
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    }
+    
+    // Close modal on backdrop click
+    document.getElementById('add-app-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeAddAppModal();
+    });
+</script>
+{% endblock %}
+

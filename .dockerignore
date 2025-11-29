@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Config (user should mount their own)
+*.conf
+config/
+
+# Documentation
+*.md
+!README.md
+
+# PowerShell (old script)
+*.ps1
+
+# Misc
+.DS_Store
+Thumbs.db
+
