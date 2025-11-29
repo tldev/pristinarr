@@ -23,7 +23,7 @@ Pristinarr is a web application that automates the manual searching of media ite
 
 2. Download the docker-compose.yml:
    ```bash
-   curl -O https://raw.githubusercontent.com/angrycuban13/pristinarr/main/docker-compose.yml
+   curl -O https://raw.githubusercontent.com/tldev/pristinarr/main/docker-compose.yml
    ```
 
 3. Create a config directory:
@@ -46,14 +46,14 @@ docker run -d \
   -p 8080:8080 \
   -v ./config:/config \
   --restart unless-stopped \
-  ghcr.io/angrycuban13/pristinarr:latest
+  ghcr.io/tldev/pristinarr:latest
 ```
 
 ### Local Development
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/angrycuban13/pristinarr.git
+   git clone https://github.com/tldev/pristinarr.git
    cd pristinarr
    ```
 
@@ -230,4 +230,4 @@ MIT License - See LICENSE file for details.
 
 ## Credits
 
-- Original concept from [Upgradinatorr](https://github.com/angrycuban13/Scripts) PowerShell script by [angrycuban13](https://github.com/angrycuban13)
+- Original concept from [Upgradinatorr](https://github.com/angrycuban13/Just-A-Bunch-Of-Starr-Scripts/tree/main/Upgradinatorr) PowerShell script by [angrycuban13](https://github.com/angrycuban13)
