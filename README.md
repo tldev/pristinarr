@@ -1,5 +1,12 @@
 # Pristinarr
 
+> [!WARNING]
+> **This project is no longer maintained.**
+>
+> Pristinarr will not receive new features, bug fixes, or security updates. We recommend switching to **[Profilarr](https://github.com/Dictionarry-Hub/profilarr)**, which has built-in upgrade searching and is actively maintained. It is what the author of this project uses now.
+>
+> The documentation below is kept for existing users only.
+
 Pristinarr is a web application that automates the manual searching of media items in your Radarr, Sonarr, Lidarr, or Readarr library. It searches for items that haven't been tagged yet, helping you find upgrades based on your Custom Format scoring.
 
 ## Features
